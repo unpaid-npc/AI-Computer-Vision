@@ -54,5 +54,3 @@ screenshots/
 ## Licence
 
 To be added.
-
-onnxruntime==<the version pip showed>
