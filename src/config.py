@@ -20,8 +20,9 @@ MIRROR_VIEW = True        # flip horizontally so it behaves like a mirror
 
 # Window and controls
 WINDOW_TITLE = "AI Computer Vision"
-QUIT_KEYS = (ord("q"), 27)                  # 'q' or the Esc key
-TOGGLE_HANDS_KEYS = (ord("h"), ord("H"))    # switch hand tracking on/off
+QUIT_KEYS = (ord("q"), 27)                        # 'q' or the Esc key
+TOGGLE_HANDS_KEYS = (ord("h"), ord("H"))          # switch hand tracking on/off
+TOGGLE_EXPRESSION_KEYS = (ord("e"), ord("E"))     # switch expression analysis on/off
 
 # Hand tracking
 ENABLE_HAND_TRACKING = True
@@ -37,10 +38,12 @@ SWAP_HANDEDNESS = True
 ENABLE_EXPRESSION = True
 FACE_MIN_DETECTION_CONFIDENCE = 0.5
 FACE_CROP_PADDING = 0.15          # extra margin around the face box before cropping
-EXPRESSION_INTERVAL_SEC = 0.25    # analyse at most 4 times per second, not every frame
+EXPRESSION_INTERVAL_SEC = 0.25    # hand a frame to the analyser at most 4 times per second
+EXPRESSION_SMOOTHING = 0.5        # 0 = no smoothing; higher = steadier but slower to change
+EXPRESSION_STALE_SEC = 1.5        # ignore a result older than this
 ONNX_NUM_THREADS = 2              # CPU threads for the expression model
 
 # Robustness
 MAX_CONSECUTIVE_READ_FAILURES = 30        # stop if this many camera reads in a row fail
-MAX_CONSECUTIVE_INFERENCE_ERRORS = 30     # turn hand tracking off after this many failures
+MAX_CONSECUTIVE_INFERENCE_ERRORS = 30     # turn a feature off after this many failures
 FPS_SMOOTHING = 0.9                       # closer to 1.0 = steadier FPS number

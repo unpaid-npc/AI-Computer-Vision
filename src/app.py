@@ -1,4 +1,4 @@
-"""Application entry point (Day 3: webcam + hand tracking).
+"""Application entry point (Day 5: webcam + hand tracking + facial expression).
 
 Run from the project root with:  python -m src.app
 """
@@ -9,7 +9,16 @@ import time
 import cv2
 
 from src import config
+from src.expression_detection import ExpressionRecognizer, draw_expression
+from src.expression_worker import ExpressionWorker
 from src.hand_tracking import HandTracker, draw_hands
+
+FONT = cv2.FONT_HERSHEY_SIMPLEX
+GREEN = (0, 255, 0)
+ORANGE = (0, 200, 255)
+YELLOW = (0, 255, 255)
+GREY = (160, 160, 160)
+WHITE = (255, 255, 255)
 
 
 def open_camera(index):
@@ -32,7 +41,7 @@ def open_camera(index):
 
 
 def create_hand_tracker():
-    """Create the hand tracker, or print a helpful message and return None."""
+    """Create the hand tracker, or print a warning and return None."""
     try:
         return HandTracker(
             config.HAND_MODEL_PATH,
@@ -43,27 +52,40 @@ def create_hand_tracker():
             swap_handedness=config.SWAP_HANDEDNESS,
         )
     except FileNotFoundError as error:
-        print(f"ERROR: {error}", file=sys.stderr)
+        print(f"WARNING: hand tracking disabled. {error}", file=sys.stderr)
     except Exception as error:
-        print(f"ERROR: Could not start the hand tracker: {error}", file=sys.stderr)
+        print(f"WARNING: hand tracking disabled. Could not start it: {error}", file=sys.stderr)
     return None
 
 
-def draw_overlay(frame, fps, hands_enabled, hand_count):
-    """Draw FPS, hand status, and key hints on the frame."""
-    cv2.putText(frame, f"FPS: {fps:.1f}", (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+def create_expression_recognizer():
+    """Create the expression recognizer, or print a warning and return None."""
+    try:
+        return ExpressionRecognizer(
+            config.FACE_MODEL_PATH,
+            config.EXPRESSION_MODEL_PATH,
+            min_face_confidence=config.FACE_MIN_DETECTION_CONFIDENCE,
+            padding=config.FACE_CROP_PADDING,
+            num_threads=config.ONNX_NUM_THREADS,
+        )
+    except FileNotFoundError as error:
+        print(f"WARNING: expression recognition disabled. {error}", file=sys.stderr)
+    except Exception as error:
+        print(f"WARNING: expression recognition disabled. Could not start it: {error}",
+              file=sys.stderr)
+    return None
 
-    if hands_enabled:
-        text = f"Hands detected: {hand_count}"
-        color = (0, 255, 0) if hand_count else (0, 200, 255)
-    else:
-        text = "Hand tracking: OFF"
-        color = (160, 160, 160)
-    cv2.putText(frame, text, (10, 62), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
-    cv2.putText(frame, "Q/Esc: quit    H: toggle hand tracking", (10, frame.shape[0] - 15),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+def draw_overlay(frame, fps, status_lines):
+    """Draw FPS, status lines, and key hints on the frame."""
+    cv2.putText(frame, f"FPS: {fps:.1f}", (10, 30), FONT, 0.8, GREEN, 2)
+    for row, (text, color) in enumerate(status_lines, start=1):
+        cv2.putText(frame, text, (10, 30 + row * 30), FONT, 0.65, color, 2)
+    height = frame.shape[0]
+    cv2.putText(frame, "Expressions are predictions, not real emotions",
+                (10, height - 40), FONT, 0.45, (200, 200, 200), 1)
+    cv2.putText(frame, "Q/Esc: quit    H: hands    E: expression",
+                (10, height - 15), FONT, 0.5, WHITE, 1)
 
 
 def window_closed():
@@ -75,11 +97,8 @@ def window_closed():
 
 
 def main():
-    tracker = None
-    if config.ENABLE_HAND_TRACKING:
-        tracker = create_hand_tracker()
-        if tracker is None:
-            return 1
+    hand_tracker = create_hand_tracker() if config.ENABLE_HAND_TRACKING else None
+    recognizer = create_expression_recognizer() if config.ENABLE_EXPRESSION else None
 
     capture = open_camera(config.CAMERA_INDEX)
     if capture is None:
@@ -90,18 +109,27 @@ def main():
             "  - Try a different CAMERA_INDEX in src/config.py.",
             file=sys.stderr,
         )
-        if tracker is not None:
-            tracker.close()
+        if hand_tracker is not None:
+            hand_tracker.close()
+        if recognizer is not None:
+            recognizer.close()
         return 1
 
     capture.set(cv2.CAP_PROP_FRAME_WIDTH, config.FRAME_WIDTH)
     capture.set(cv2.CAP_PROP_FRAME_HEIGHT, config.FRAME_HEIGHT)
 
+    worker = None
+    if recognizer is not None:
+        worker = ExpressionWorker(recognizer, smoothing=config.EXPRESSION_SMOOTHING)
+
     fps = 0.0
     previous_time = time.perf_counter()
+    last_submit = 0.0
     read_failures = 0
-    inference_errors = 0
-    hands_enabled = tracker is not None
+    hand_errors = 0
+    last_expression_error = ""
+    hands_enabled = hand_tracker is not None
+    expression_enabled = worker is not None
     window_shown = False
 
     try:
@@ -120,21 +148,6 @@ def main():
             if config.MIRROR_VIEW:
                 frame = cv2.flip(frame, 1)
 
-            hands = []
-            if hands_enabled:
-                try:
-                    hands = tracker.detect(frame)
-                    inference_errors = 0
-                except Exception as error:
-                    inference_errors += 1
-                    if inference_errors == 1:
-                        print(f"WARNING: hand tracking error: {error}", file=sys.stderr)
-                    if inference_errors >= config.MAX_CONSECUTIVE_INFERENCE_ERRORS:
-                        print("ERROR: Hand tracking keeps failing, so it was turned off.",
-                              file=sys.stderr)
-                        hands_enabled = False
-                draw_hands(frame, hands)
-
             now = time.perf_counter()
             elapsed = now - previous_time
             previous_time = now
@@ -144,24 +157,95 @@ def main():
                     config.FPS_SMOOTHING * fps + (1 - config.FPS_SMOOTHING) * instant_fps
                 )
 
-            draw_overlay(frame, fps, hands_enabled, len(hands))
+            # 1. Give the expression worker a clean copy of the frame (before anything is drawn on it).
+            if expression_enabled and now - last_submit >= config.EXPRESSION_INTERVAL_SEC:
+                last_submit = now
+                worker.submit(frame)
+
+            status_lines = []
+
+            # 2. Hand tracking.
+            if hand_tracker is None:
+                status_lines.append(("Hands: unavailable", GREY))
+            elif not hands_enabled:
+                status_lines.append(("Hands: OFF", GREY))
+            else:
+                hands = []
+                try:
+                    hands = hand_tracker.detect(frame)
+                    hand_errors = 0
+                except Exception as error:
+                    hand_errors += 1
+                    if hand_errors == 1:
+                        print(f"WARNING: hand tracking error: {error}", file=sys.stderr)
+                    if hand_errors >= config.MAX_CONSECUTIVE_INFERENCE_ERRORS:
+                        print("ERROR: Hand tracking keeps failing, so it was turned off.",
+                              file=sys.stderr)
+                        hands_enabled = False
+                draw_hands(frame, hands)
+                status_lines.append(
+                    (f"Hands detected: {len(hands)}", GREEN if hands else ORANGE)
+                )
+
+            # 3. Latest expression result (from the worker thread).
+            if worker is None:
+                status_lines.append(("Expression: unavailable", GREY))
+            elif not expression_enabled:
+                status_lines.append(("Expression: OFF", GREY))
+            else:
+                snapshot = worker.latest()
+                fresh = (snapshot.finished_at > 0.0
+                         and time.monotonic() - snapshot.finished_at <= config.EXPRESSION_STALE_SEC)
+                if not fresh:
+                    status_lines.append(("Expression: analysing...", ORANGE))
+                else:
+                    if snapshot.error:
+                        if snapshot.error != last_expression_error:
+                            print(f"WARNING: expression analysis error: {snapshot.error}",
+                                  file=sys.stderr)
+                            last_expression_error = snapshot.error
+                    else:
+                        last_expression_error = ""
+
+                    if snapshot.consecutive_errors >= config.MAX_CONSECUTIVE_INFERENCE_ERRORS:
+                        print("ERROR: Expression analysis keeps failing, so it was turned off.",
+                              file=sys.stderr)
+                        expression_enabled = False
+                        status_lines.append(("Expression: stopped (errors)", ORANGE))
+                    elif snapshot.result is None:
+                        status_lines.append(("Expression: no face detected", ORANGE))
+                    else:
+                        draw_expression(frame, snapshot.result)
+                        status_lines.append((
+                            f"Expression: {snapshot.result.label} "
+                            f"({snapshot.result.confidence:.0%})", GREEN))
+                    status_lines.append((f"Analysis: {snapshot.analysis_ms:.0f} ms", YELLOW))
+
+            draw_overlay(frame, fps, status_lines)
             cv2.imshow(config.WINDOW_TITLE, frame)
             window_shown = True
 
             key = cv2.waitKey(1) & 0xFF
             if key in config.QUIT_KEYS:
                 break
-            if key in config.TOGGLE_HANDS_KEYS and tracker is not None:
+            if key in config.TOGGLE_HANDS_KEYS and hand_tracker is not None:
                 hands_enabled = not hands_enabled
-                inference_errors = 0
+                hand_errors = 0
+            if key in config.TOGGLE_EXPRESSION_KEYS and worker is not None:
+                expression_enabled = not expression_enabled
+                last_expression_error = ""
             if window_shown and window_closed():
                 break
     except KeyboardInterrupt:
         print("Interrupted by user.")
     finally:
+        if worker is not None:
+            worker.stop()
+        if recognizer is not None:
+            recognizer.close()
+        if hand_tracker is not None:
+            hand_tracker.close()
         capture.release()
-        if tracker is not None:
-            tracker.close()
         cv2.destroyAllWindows()
         print("Camera released. Goodbye.")
 
