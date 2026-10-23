@@ -2,13 +2,13 @@
 
 A real-time computer vision application that uses a webcam to track hands, recognise basic hand gestures, and predict facial expressions. It is built with Python, OpenCV, and MediaPipe.
 
-> **Status: work in progress (Day 1 of 7).** Nothing is runnable yet. The environment and project structure are set up.
+> **Status: work in progress (Day 2 of 7).** The webcam viewer works. Run it with `python -m src.app`. Hand tracking and expression recognition are still to come.
 
 ## Planned features
 
 | Feature | Status |
 |---|---|
-| Webcam capture with OpenCV | Planned |
+| Webcam capture with OpenCV | Done |
 | Hand landmark tracking (21 landmarks, 1 to 2 hands) | Planned |
 | Gesture recognition (open palm, fist, peace sign, thumbs-up) | Planned |
 | Facial expression prediction (CPU-friendly pretrained model) | Planned |
