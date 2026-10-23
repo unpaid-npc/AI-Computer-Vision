@@ -9,6 +9,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MODELS_DIR = PROJECT_ROOT / "models"
 HAND_MODEL_PATH = MODELS_DIR / "hand_landmarker.task"
+FACE_MODEL_PATH = MODELS_DIR / "blaze_face_short_range.tflite"
+EXPRESSION_MODEL_PATH = MODELS_DIR / "emotion-ferplus-8.onnx"
 
 # Camera settings
 CAMERA_INDEX = 0          # 0 is usually the built-in laptop webcam
@@ -27,9 +29,16 @@ MAX_HANDS = 2
 MIN_DETECTION_CONFIDENCE = 0.5
 MIN_PRESENCE_CONFIDENCE = 0.5
 MIN_TRACKING_CONFIDENCE = 0.5
-# The frame is mirrored before detection, so the Left/Right labels should match
-# your real hands. If they appear reversed on your machine, set this to True.
+# The frame is mirrored before detection and the labels came out reversed on the
+# development machine, so they are swapped back here.
 SWAP_HANDEDNESS = True
+
+# Facial expression recognition
+ENABLE_EXPRESSION = True
+FACE_MIN_DETECTION_CONFIDENCE = 0.5
+FACE_CROP_PADDING = 0.15          # extra margin around the face box before cropping
+EXPRESSION_INTERVAL_SEC = 0.25    # analyse at most 4 times per second, not every frame
+ONNX_NUM_THREADS = 2              # CPU threads for the expression model
 
 # Robustness
 MAX_CONSECUTIVE_READ_FAILURES = 30        # stop if this many camera reads in a row fail
