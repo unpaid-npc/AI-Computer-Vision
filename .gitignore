@@ -1,0 +1,25 @@
+# Virtual environment
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Model files (downloaded separately, not committed)
+models/*
+!models/.gitkeep
+
+# Secrets and personal data
+.env
+*.key
+
+# Editor / OS files
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Captured media (keep curated ones in screenshots/ only)
+*.mp4
+*.avi
