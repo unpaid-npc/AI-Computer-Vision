@@ -29,7 +29,7 @@ MIN_PRESENCE_CONFIDENCE = 0.5
 MIN_TRACKING_CONFIDENCE = 0.5
 # The frame is mirrored before detection, so the Left/Right labels should match
 # your real hands. If they appear reversed on your machine, set this to True.
-SWAP_HANDEDNESS = False
+SWAP_HANDEDNESS = True
 
 # Robustness
 MAX_CONSECUTIVE_READ_FAILURES = 30        # stop if this many camera reads in a row fail
