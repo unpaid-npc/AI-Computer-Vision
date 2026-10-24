@@ -38,7 +38,7 @@ SWAP_HANDEDNESS = True
 # Gesture recognition
 ENABLE_GESTURES = True
 GESTURE_SMOOTHING_WINDOW = 5      # majority vote over this many recent frames
-SHOW_GESTURE_DEBUG = True         # show the raw finger states (T I M R P) under each hand
+SHOW_GESTURE_DEBUG = False         # show the raw finger states (T I M R P) under each hand
 
 # Facial expression recognition
 ENABLE_EXPRESSION = True
