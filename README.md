@@ -2,7 +2,7 @@
 
 A real-time computer vision application that uses a webcam to track hands, recognise basic hand gestures, and predict facial expressions. It is built with Python, OpenCV, and MediaPipe.
 
-> **Status: work in progress (Day 5 of 7).** Webcam capture, real-time hand tracking, and facial expression prediction run together in one app (`python -m src.app`). Hand gesture recognition and a polished interface are still to come. Setup: install the requirements, run `python scripts/download_models.py` once, then start the app.
+> **Status: work in progress (Day 6 of 7).** Webcam capture, hand tracking, gesture recognition, and facial expression prediction run together in one app (`python -m src.app`). A polished interface is still to come. Setup: install the requirements, run `python scripts/download_models.py` once, then start the app.
 
 ## Planned features
 
@@ -10,7 +10,7 @@ A real-time computer vision application that uses a webcam to track hands, recog
 |---|---|
 | Webcam capture with OpenCV | Done |
 | Hand landmark tracking (21 landmarks, 1 to 2 hands) | Done |
-| Gesture recognition (open palm, fist, peace sign, thumbs-up) | Planned |
+| Gesture recognition (open palm, fist, peace sign, thumbs-up) | Done (rule-based, see limitations) |
 | Facial expression prediction (CPU-friendly pretrained model) | Done (see limitations) |
 | Combined real-time application with FPS and status display | In progress (gestures pending) |
 | User interface with feature toggles | Planned |
@@ -50,6 +50,26 @@ screenshots/
 | H | Toggle hand tracking |
 | E | Toggle expression analysis |
 
+## Gestures
+
+| Gesture | Status | How it is detected |
+|---|---|---|
+| Open Palm | Implemented | All four fingers extended |
+| Fist | Implemented | No fingers extended, thumb tucked in |
+| Peace | Implemented | Index and middle extended, ring and little finger curled |
+| Thumbs Up | Implemented | Fingers curled, thumb extended and pointing upward |
+
+Not implemented: pointing, thumbs-down, OK sign, and any other gesture. These show no label.
+
+Finger positions are judged from landmark distances, so Open Palm, Fist, and Peace work at any hand rotation. Thumbs Up requires the thumb to point upward in the image.
+
+## Running the tests
+
+    pip install -r requirements-dev.txt
+    python -m pytest
+
+The tests use synthetic hand landmarks and need no camera or model files.
+
 ## Models and attribution
 
 - Hand landmarks and face detection: Google MediaPipe models (downloaded by `scripts/download_models.py`).
@@ -59,6 +79,7 @@ screenshots/
 
 - Expression output is a prediction from a small pretrained model. It can be wrong, especially with poor lighting, tilted faces, glasses, or subtle expressions, and its accuracy may differ between people.
 - In informal testing, subtle expressions were often misclassified. Clear, exaggerated expressions worked better.
+- Gesture rules are simple geometric heuristics tuned on one webcam. Partly curled fingers, heavy foreshortening, and poor lighting can cause misses.
 
 ## Licence
 
