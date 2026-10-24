@@ -23,6 +23,7 @@ WINDOW_TITLE = "AI Computer Vision"
 QUIT_KEYS = (ord("q"), 27)                        # 'q' or the Esc key
 TOGGLE_HANDS_KEYS = (ord("h"), ord("H"))          # switch hand tracking on/off
 TOGGLE_EXPRESSION_KEYS = (ord("e"), ord("E"))     # switch expression analysis on/off
+TOGGLE_GESTURES_KEYS = (ord("g"), ord("G"))       # switch gesture recognition on/off
 
 # Hand tracking
 ENABLE_HAND_TRACKING = True
