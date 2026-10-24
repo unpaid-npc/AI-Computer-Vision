@@ -48,6 +48,7 @@ screenshots/
 |---|---|
 | Q or Esc | Quit |
 | H | Toggle hand tracking |
+| G | Toggle gesture recognition |
 | E | Toggle expression analysis |
 
 ## Gestures
