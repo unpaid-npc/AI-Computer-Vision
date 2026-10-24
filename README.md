@@ -106,7 +106,6 @@ scripts/
   try_expression.py        standalone expression test
 tests/                     unit tests
 models/                    downloaded model files (not committed)
-screenshots/
 ```
 
 ## Configuration
