@@ -107,5 +107,7 @@ def draw_hands(frame, hands):
         for point in points:
             cv2.circle(frame, point, 4, (0, 0, 255), -1)
         wrist_x, wrist_y = points[0]
-        cv2.putText(frame, f"{hand.label} {hand.score:.0%}", (wrist_x - 30, wrist_y + 30),
+        label_x = min(max(wrist_x - 30, 5), width - 130)
+        label_y = min(max(wrist_y - 15, 20), height - 45)
+        cv2.putText(frame, f"{hand.label} {hand.score:.0%}", (label_x, label_y),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
