@@ -34,11 +34,16 @@ MIN_TRACKING_CONFIDENCE = 0.5
 # development machine, so they are swapped back here.
 SWAP_HANDEDNESS = True
 
+# Gesture recognition
+ENABLE_GESTURES = True
+GESTURE_SMOOTHING_WINDOW = 5      # majority vote over this many recent frames
+SHOW_GESTURE_DEBUG = True         # show the raw finger states (T I M R P) under each hand
+
 # Facial expression recognition
 ENABLE_EXPRESSION = True
 FACE_MIN_DETECTION_CONFIDENCE = 0.5
 FACE_CROP_PADDING = 0.15          # extra margin around the face box before cropping
-EXPRESSION_INTERVAL_SEC = 0.25    # hand a frame to the analyser at most 4 times per second
+EXPRESSION_INTERVAL_SEC = 0.25   # hand a frame to the analyser at most 4 times per second
 EXPRESSION_SMOOTHING = 0.5        # 0 = no smoothing; higher = steadier but slower to change
 EXPRESSION_STALE_SEC = 1.5        # ignore a result older than this
 ONNX_NUM_THREADS = 2              # CPU threads for the expression model

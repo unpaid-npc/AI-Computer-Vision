@@ -1,16 +1,24 @@
-"""Application entry point (Day 5: webcam + hand tracking + facial expression).
+"""Application entry point: webcam + hand tracking + gestures + facial expression.
 
 Run from the project root with:  python -m src.app
 """
 
 import sys
 import time
+from dataclasses import replace
 
 import cv2
 
 from src import config
 from src.expression_detection import ExpressionRecognizer, draw_expression
 from src.expression_worker import ExpressionWorker
+from src.gesture_recognition import (
+    GESTURE_UNKNOWN,
+    GestureSmoother,
+    classify_gesture,
+    draw_gestures,
+    hand_keys,
+)
 from src.hand_tracking import HandTracker, draw_hands
 
 FONT = cv2.FONT_HERSHEY_SIMPLEX
@@ -76,6 +84,19 @@ def create_expression_recognizer():
     return None
 
 
+def recognize_gestures(hands, frame, smoother):
+    """Classify each hand's gesture and smooth the result over recent frames."""
+    if not hands:
+        smoother.update({})
+        return []
+    height, width = frame.shape[:2]
+    aspect_ratio = width / height
+    raw = [classify_gesture(hand.landmarks, aspect_ratio) for hand in hands]
+    keys = hand_keys([hand.label for hand in hands])
+    smoothed = smoother.update({key: result.name for key, result in zip(keys, raw)})
+    return [replace(result, name=smoothed[key]) for key, result in zip(keys, raw)]
+
+
 def draw_overlay(frame, fps, status_lines):
     """Draw FPS, status lines, and key hints on the frame."""
     cv2.putText(frame, f"FPS: {fps:.1f}", (10, 30), FONT, 0.8, GREEN, 2)
@@ -121,6 +142,7 @@ def main():
     worker = None
     if recognizer is not None:
         worker = ExpressionWorker(recognizer, smoothing=config.EXPRESSION_SMOOTHING)
+    smoother = GestureSmoother(window=config.GESTURE_SMOOTHING_WINDOW)
 
     fps = 0.0
     previous_time = time.perf_counter()
@@ -164,15 +186,19 @@ def main():
 
             status_lines = []
 
-            # 2. Hand tracking.
+            # 2. Hand tracking and gestures.
             if hand_tracker is None:
                 status_lines.append(("Hands: unavailable", GREY))
             elif not hands_enabled:
+                smoother.update({})
                 status_lines.append(("Hands: OFF", GREY))
             else:
                 hands = []
+                gestures = []
                 try:
                     hands = hand_tracker.detect(frame)
+                    if config.ENABLE_GESTURES:
+                        gestures = recognize_gestures(hands, frame, smoother)
                     hand_errors = 0
                 except Exception as error:
                     hand_errors += 1
@@ -183,9 +209,19 @@ def main():
                               file=sys.stderr)
                         hands_enabled = False
                 draw_hands(frame, hands)
+                if gestures:
+                    draw_gestures(frame, hands, gestures, config.SHOW_GESTURE_DEBUG)
                 status_lines.append(
                     (f"Hands detected: {len(hands)}", GREEN if hands else ORANGE)
                 )
+                if config.ENABLE_GESTURES:
+                    names = [f"{hand.label} {gesture.name}"
+                             for hand, gesture in zip(hands, gestures)
+                             if gesture.name != GESTURE_UNKNOWN]
+                    status_lines.append(
+                        ("Gesture: " + (", ".join(names) if names else "none"),
+                         GREEN if names else GREY)
+                    )
 
             # 3. Latest expression result (from the worker thread).
             if worker is None:
