@@ -17,11 +17,13 @@ from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QMainWindow,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -50,8 +52,13 @@ PLACEHOLDER_TEXT = "Camera stopped.\nPress \"Start camera\" to begin."
 STYLE = """
 QMainWindow, QWidget#root { background: #0f1115; }
 QWidget { color: #e6edf3; font-family: "Segoe UI"; font-size: 10pt; }
+QWidget#sidePanel { background: transparent; }
+QScrollArea#sideScroll { background: transparent; border: none; }
+QScrollBar:vertical { background: #0f1115; width: 10px; margin: 0; }
+QScrollBar::handle:vertical { background: #343b4a; border-radius: 5px; min-height: 24px; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
 QLabel#video { background: #000000; border: 1px solid #2a2f3a; border-radius: 8px;
-               color: #8b949e; font-size: 12pt; }
+               color: #c9d1d9; font-size: 12pt; padding: 24px; }
 QLabel#title { font-size: 15pt; font-weight: 600; }
 QLabel#subtitle, QLabel#note { color: #8b949e; }
 QGroupBox { background: #161a22; border: 1px solid #2a2f3a; border-radius: 8px;
@@ -151,6 +158,7 @@ class MainWindow(QMainWindow):
         self._pipeline = VisionPipeline()
         self._worker = None
         self._closing = False
+        self._failure = ""   # last camera error, shown in the video area once the camera stops
         self._build_ui()
         self._set_message("\n".join(self._pipeline.warnings), LEVEL_WARN)
         self._warning_count = len(self._pipeline.warnings)
@@ -175,14 +183,15 @@ class MainWindow(QMainWindow):
         self.video_label = QLabel(PLACEHOLDER_TEXT)
         self.video_label.setObjectName("video")
         self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.video_label.setWordWrap(True)
         self.video_label.setMinimumSize(640, 480)
         self.video_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
         layout.addWidget(self.video_label, stretch=1)
 
         panel = QWidget()
-        panel.setFixedWidth(310)
+        panel.setObjectName("sidePanel")
         side = QVBoxLayout(panel)
-        side.setContentsMargins(0, 0, 0, 0)
+        side.setContentsMargins(0, 0, 8, 0)
         side.setSpacing(12)
 
         title = QLabel("AI Computer Vision")
@@ -256,14 +265,26 @@ class MainWindow(QMainWindow):
         note.setWordWrap(True)
         side.addWidget(note)
 
-        layout.addWidget(panel)
-        self.resize(1120, 640)
+        # The side panel scrolls if the window is short or a message is long,
+        # so its contents are never squashed.
+        scroll = QScrollArea()
+        scroll.setObjectName("sideScroll")
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setFixedWidth(340)
+        scroll.setWidget(panel)
+        scroll.viewport().setStyleSheet("background: transparent;")
+        layout.addWidget(scroll)
+
+        self.resize(1180, 720)
 
     # ----- camera control ---------------------------------------------------
 
     def start_camera(self):
         if self._worker is not None:
             return
+        self._failure = ""
         self._set_message("\n".join(self._pipeline.warnings), LEVEL_WARN)
         worker = CameraWorker(self._pipeline, self)
         worker.result_ready.connect(self._on_result)
@@ -306,8 +327,11 @@ class MainWindow(QMainWindow):
             self._set_message("\n".join(warnings), LEVEL_WARN)
 
     def _on_failed(self, message):
-        if not self._closing:
-            self._set_message(message, LEVEL_WARN)
+        if self._closing:
+            return
+        # The full explanation goes in the large video area; the side panel gets one line.
+        self._failure = message
+        self._set_message(message.splitlines()[0], LEVEL_WARN)
 
     def _on_worker_finished(self):
         if self._closing:
@@ -319,7 +343,7 @@ class MainWindow(QMainWindow):
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
         self.video_label.clear()
-        self.video_label.setText(PLACEHOLDER_TEXT)
+        self.video_label.setText(self._failure or PLACEHOLDER_TEXT)
         self._reset_readouts()
 
     # ----- small helpers ----------------------------------------------------
